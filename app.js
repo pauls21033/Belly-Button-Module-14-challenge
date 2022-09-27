@@ -1,195 +1,118 @@
 // Initializing the page and calling the other functions
-function startup() {
+function buildMetadata(sample) {
+  d3.json("samples.json").then((data) => {
+    var metadata= data.metadata;
+    var resultsarray= metadata.filter(sampleobject => 
+      sampleobject.id == sample);
+    var result= resultsarray[0]
+    var panel = d3.select("#sample-metadata");
+    panel.html("");
+    Object.entries(result).forEach(([key, value]) => {
+      panel.append("h6").text(`${key}: ${value}`);
+    });
 
-    // Grabbing the dropdown element
-    var selector = d3.select('#selDataset');
+  //buildGauge(result.wfreq)
 
-    d3.json("samples.json").then(function(samplesData){
-        var names = samplesData.names;
+  });
+}
 
-        selector.selectAll('option')
-            .data(names)
-            .enter()
-            .append('option')
-            .attr('value', d => d)
-            .text(d => d);
+//function buildGauge(wfreq) {}
 
-        // Take in the first name upon loading the page
-        var starter = names[0];
+function buildCharts(sample) {
 
-        // Call other functions using starter name
-        buildPlots(starter);
-        demographics(starter);
+// Use `d3.json` to fetch the sample data for the plots
+d3.json("samples.json").then((data) => {
+  var samples= data.samples;
+  var resultsarray= samples.filter(sampleobject => 
+      sampleobject.id == sample);
+  var result= resultsarray[0]
 
-    }).catch(error => console.log(error));
-};
+  var ids = result.otu_ids;
+  var labels = result.otu_labels;
+  var values = result.sample_values;
 
-// Dynamic changing of plots and demographics upon change in dropdown
-function optionChanged(newID){
-    buildPlots(newID);
-    demographics(newID);
-};
+//------------------------------------------------------//
+//------------------------------------------------------//
+          // Build a BUBBLE Chart 
+//------------------------------------------------------//
+//------------------------------------------------------//
 
-// Building Bar Chart and Bubble Chart
-function buildPlots(id) {
-    // Reading in the json dataset
-    d3.json("samples.json").then(function(samplesData){
-        // console.log(samplesData);
-        // Filtering for the id selected
-        var filtered = samplesData.samples.filter(sample => sample.id == id);
-        var result = filtered[0];
-        // console.log(filtered)
-        // console.log(result)
+  var LayoutBubble = {
+    margin: { t: 0 },
+    xaxis: { title: "OTU ID" },
+    hovermode: "closest",
+    };
 
-        // creating variables and storing the top 10 in an array
-
-        Data = [];
-        for (i=0; i<result.sample_values.length; i++){
-            Data.push({
-                id: `OTU ${result.otu_ids[i]}`,
-                value: result.sample_values[i],
-                label: result.otu_labels[i]
-            });
+    var DataBubble = [ 
+    {
+      x: ids,
+      y: values,
+      text: labels,
+      mode: "markers",
+      marker: {
+        color: ids,
+        size: values,
         }
-        // console.log(Data);
+    }
+  ];
 
-        // Sorting the data and slicing for top10
-        var Sorted = Data.sort(function sortFunction(a,b){
-            return b.value - a.value;
-        }).slice(0,10);
-        // console.log(Sorted)
+  Plotly.newPlot("bubble", DataBubble, LayoutBubble);
 
-        // Since horizontal bar chart, need to reverse to display from top to bottom in descending order
-        var reversed = Sorted.sort(function sortFunction(a,b){
-            return a.value - b.value;
-        })
-        // console.log(reversed);
 
-        // Trace for Horizontal Bar Chart
-        var colors = ['#fff100', '#ff8c00', '#e81123', '#ec008c', '#68217a', '#00188f', '#00bcf2', '#00b294', '#009e49', '#bad80a']
-        var traceBar = {
-            type: "bar",
-            orientation: 'h',
-            x: reversed.map(row=> row.value),
-            y: reversed.map(row => row.id),
-            text: reversed.map(row => row.label),
-            mode: 'markers',
-            marker: {
-                color: colors
-            }
-          };
-        
-        var Bardata = [traceBar];
-          
-        var Barlayout = {
-            title: `<span style='font-size:1em; color:#00bcf2'><b>Top 10 OTUs for Subject ${id}<b></span>`,
-            xaxis: {autorange: true, title: 'Sample Values'},
-            yaxis: {autorange: true},
-            width: 500,
-            height: 500
-          };
-        
-        // Creating the Horizontal Bar Chart
-        Plotly.newPlot("bar", Bardata, Barlayout);
+//---------------------------------------------------------//
+//---------------------------------------------------------//
+              //  Build a BAR Chart
+//---------------------------------------------------------//  
+//---------------------------------------------------------// 
+  var bar_data =[
+    {
+      y:ids.slice(0, 10).map(otuID => `OTU ${otuID}`).reverse(),
+      x:values.slice(0,10).reverse(),
+      text:labels.slice(0,10).reverse(),
+      type:"bar",
+      orientation:"h"
 
-        // Bubble Chart
-        var traceBubble = {
-            x: result.otu_ids,
-            y: result.sample_values,
-            mode: 'markers',
-            marker: {
-                size: result.sample_values,
-                color: result.otu_ids,
-                colorscale: 'Jet'
-            },
-            text: result.otu_labels
-        };
+    }
+  ];
 
-        var Bubbledata = [traceBubble]
+  var barLayout = {
+    title: "Top 10 Bacteria Cultures Found",
+    margin: { t: 30, l: 150 }
+  };
 
-        var Bubblelayout = {
-            title: `<span style='font-size:1em; color:#00bcf2'><b>OTU Data for Subject ${id}<b></span>`,
-            xaxis: {title:'OTU ID'},
-            yaxis: {title: 'Sample Values'},
-            width: window.width
-        };
+  Plotly.newPlot("bar", bar_data, barLayout);
+});
+}
+ 
 
-        // Creating Bubble Chart
-        Plotly.newPlot('bubble', Bubbledata, Bubblelayout);
+function init() {
+// Grab a reference to the dropdown select element
+var selector = d3.select("#selDataset");
 
-    }).catch(error => console.log(error));
+// Use the list of sample names to populate the select options
+d3.json("samples.json").then((data) => {
+  var sampleNames = data.names;
+  sampleNames.forEach((sample) => {
+    selector
+      .append("option")
+      .text(sample)
+      .property("value", sample);
+  });
+
+  // Use the first sample from the list to build the initial plots
+  const firstSample = sampleNames[0];
+  buildCharts(firstSample);
+  buildMetadata(firstSample);
+});
 }
 
-// Cleaning up the demographic keys
-function proper(str){
-    return str.toLowerCase().split(' ').map(letter => {
-        return (letter.charAt(0).toUpperCase() + letter.slice(1));
-    }).join(' ');
+function optionChanged(newSample) {
+// Fetch new data each time a new sample is selected
+buildCharts(newSample);
+buildMetadata(newSample);
 }
 
-// Demographics
-function demographics(id) {
-    // To build the demographics section we need to import the data again
-    d3.json('samples.json').then(function(samplesData){
-        var filtered = samplesData.metadata.filter(sample => sample.id == id);
-        
-        // Selecting the meta-data id on the html page
-        var selection = d3.select('#sample-metadata');
 
-        // Clear any data already present
-        selection.html('');
 
-        // Appending data extracted into the panel
-        Object.entries(filtered[0]).forEach(([k,v]) => {
-            // console.log(k,v)
-            selection.append('h5')
-                .text(`${proper(k)}: ${v}`);
-        });
-
-        
-        // Gauge Chart is easier to do it with demographics as the wash frequency is found under metadata
-        var traceGauge = {
-            type: 'indicator',
-            mode: 'gauge+number',
-            title: {
-                text: `<span style='font-size:0.8em; color:#00bcf2'><b>Belly Button Washing Frequency<b><br>From Subject ${id}<br># of Scrubs</span>`
-            },
-            subtitle: {text: `# Scrubs per week`},
-            domain: {
-                x: [0,5],
-                y: [0,1]
-            },
-            value: filtered[0].wfreq,
-            gauge: {
-                axis: {
-                    range: [null, 9]
-                },
-                steps: [
-                    {range: [0,2], color: '#e81123'},
-                    {range: [2,4], color: '#ff8c00'},
-                    {range: [4,6], color: '#fff100'},
-                    {range: [6,8], color: '#00b294'},
-                    {range: [8,10], color: '#009e49'}   
-                ],
-                threshold: {
-                    line: {color: 'red', width: 4},
-                    thickness: 0.75,
-                    value: 6
-                }
-            }
-        };
-
-        var Gaugedata = [traceGauge];
-
-        var Gaugelayout = {
-            width: 350,
-            height: 350,
-            margin: {t: 25, r:10, l:25, b:25}
-        };
-
-        // Creating Gauge Chart
-        Plotly.newPlot('gauge', Gaugedata, Gaugelayout);
-    }).catch(error => console.log(error));
-}
-
-startup();
+// Initialize the dashboard
+init();
