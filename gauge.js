@@ -225,4 +225,4 @@ buildGaugeChart(newSample)
 
 
 // Initialize the dashboard
-init();
+initDashboard();
